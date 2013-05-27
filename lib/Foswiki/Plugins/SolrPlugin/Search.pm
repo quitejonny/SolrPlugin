@@ -211,12 +211,15 @@ HERE
       my $topic;
       my $web;
       my $summary = '';
+      
+      my $theValueSep = $params->{valueseparator} || ', ';
+      
+      foreach my $name ($doc->field_names) {
+        my @values = $doc->values_for($name);
+        my $value = join($theValueSep, @values);
 
-      foreach my $field ($doc->fields) {
-        my $name = $field->{name};
 
-        my $value = $field->{value};
-	$name = $this->fromUtf8($name);
+	    $name = $this->fromUtf8($name);
       	$value = $this->fromUtf8($value);
 
         $web = $value if $name eq 'web';
