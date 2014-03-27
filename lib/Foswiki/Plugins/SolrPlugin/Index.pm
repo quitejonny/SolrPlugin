@@ -1432,5 +1432,19 @@ sub getTimestamp {
   return ($data || 0);
 }
 
+################################################################################
+sub groupsCache {
+    my $this = shift;
+    $this->{_groupCache} = shift if @_;
+    $this->{_groupCache};
+}
+
+################################################################################
+sub webACLsCache {
+    my $this = shift;
+    $this->{_webACLCache} = shift if @_;
+    $this->{_webACLCache};
+}
+
 1;
 
