@@ -898,9 +898,8 @@ sub restSOLRAUTOCOMPLETE {
     unless Foswiki::Func::isAnAdmin($wikiUser);
 
   # tokenize here as well to separate query and prefix
-  $theQuery =~ s/[\!"§\$%&\/\(\)=\?{}\[\]\*\+~#',\.;:\-_]/ /g;
-  $theQuery =~ s/([$Foswiki::regex{lowerAlpha}])([$Foswiki::regex{upperAlpha}$Foswiki::regex{numeric}]+)/$1 $2/go;
-  $theQuery =~ s/([$Foswiki::regex{numeric}])([$Foswiki::regex{upperAlpha}])/$1 $2/go;
+
+  $theQuery =~ s/[\!"§\$%&\(\)=\?{}\[\]\*\+~#',\.;:\-_]/ /g;
 
   # work around solr not doing case-insensitive facet queries
   $theQuery = lc($theQuery);
