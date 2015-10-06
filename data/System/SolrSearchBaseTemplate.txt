@@ -112,6 +112,7 @@
 %TMPL:P{"solr::templates::hierarchy"}%
 %TMPL:P{"solr::templates::resultsperpage"}%
 %TMPL:P{"solr::templates::spellcorrection"}%
+%TMPL:P{"solr::templates::redirectfacet"}%
 <!-- -->%TMPL:END%
 %{</verbatim>}%
 
@@ -310,6 +311,12 @@
 %{<verbatim class="tml">}%
 %TMPL:DEF{"solr::templates::tagcloud"}%<script id="solrTagCloudTemplate" type="text/x-jquery-tmpl">
 {{html group}}<span style='font-size:${weight}px'><a href='#' title='${count}' style='color:${color};' class='solrFacetValue ${current} tag_${facet}'>${facet}</a> </span>
+</script>%TMPL:END%
+%{</verbatim>}%
+
+%{<verbatim class="tml">}%
+%TMPL:DEF{"solr::templates::redirectfacet"}%<script id="solrRedirectFacetTemplate" type="text/x-jsrender">
+<input type="checkbox" value="1" class="foswikiCheckbox" id='{{:id}}' {{if checked}}checked='checked'{{/if}}/><label for='{{:id}}'>{{:~foswiki.jsi18n.get('solr', 'Search only here')}}</label>
 </script>%TMPL:END%
 %{</verbatim>}%
 
