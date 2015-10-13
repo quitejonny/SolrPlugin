@@ -1434,14 +1434,11 @@
         }
       }
 
-      $target.append($(self.options.templateName).render(
-        {
+      self.template = $(self.options.templateName).template();
+      $target.empty().append($.tmpl(self.template, {
           id: AjaxSolr.Helpers.getUniqueID(),
           checked: checked
-        }, {
-          foswiki: window.foswiki,
-        }
-      ));
+      }));
       var $input = $target.find('input').change(function() {
         doRequest();
       });

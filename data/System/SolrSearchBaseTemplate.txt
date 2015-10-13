@@ -337,6 +337,11 @@
 </script>%TMPL:END%
 %{</verbatim>}%
 
+%{<verbatim class="tml">}%
+%TMPL:DEF{"solr::templates::redirectfacet"}%<script id="solrRedirectFacetTemplate" type="text/x-jsrender">
+<input type="checkbox" value="1" class="foswikiCheckbox" id='${id}' {{if checked}}checked='checked'{{/if}}/><label for='${id}'>${jsi18n.get('solr', 'Search only here')}</label>
+</script>%TMPL:END%
+%{</verbatim>}%
 
 %{<verbatim class="tml">}%
 %TMPL:DEF{"solr::templates::resultsperpage"}%<script id="solrResultsPerPageTemplate" type="text/x-jquery-tmpl">
