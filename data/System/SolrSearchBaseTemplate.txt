@@ -517,6 +517,8 @@
 %TMPL:P{"solr::facet"
   id="language"
   title="%MAKETEXT{"Language"}%"
+  include="%TMPL:P{"solr::facet::include::language"}%"
+  exclude="%TMPL:P{"solr::facet::exclude::language"}%"
 }%
 %TMPL:P{"solr::facet"
   id="author"
