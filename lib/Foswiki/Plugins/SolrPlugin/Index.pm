@@ -1071,6 +1071,13 @@ sub getStringifiedVersion {
 
   my $utf8Text = eval { Encode::decode('utf-8', $attText, 1) };
   $attText = (defined $utf8Text ? $utf8Text : Encode::decode('Windows-1252', $attText));
+
+  # only cache the first 10MB at most, TODO: make size configurable
+  if (length($attText) > 1014*1000*10) {
+      $this->log("Warning: ignoring attachment $attachment at $web.$topic larger than 10MB");
+      $attText = '';
+  }
+
   $attText = Encode::encode($Foswiki::cfg{Site}{CharSet}, $attText);
   return $attText;
 }
