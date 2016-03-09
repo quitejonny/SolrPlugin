@@ -1030,9 +1030,12 @@
         value = RegExp.$1 + value;
       }
 
+      var customtemplate = '#' + field + '_CurrentSelection';
+      if(!$(customtemplate).length) customtemplate = undefined;
       self.selectionContainer.append($(self.template.render({
         id: AjaxSolr.Helpers.getUniqueID(),
         field: _(field),
+        customtemplate: customtemplate,
         facet: value
       }, {
         getWebMapping: AjaxSolr.getWebMapping,
