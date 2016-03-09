@@ -54,6 +54,7 @@
     $(".solrWebFacetField").solrWebFacetWidget(manager);
     $(".solrToggleFacet").solrToggleFacetWidget(manager);
     $(".solrDefaultFacet").solrDefaultFacetWidget(manager);
+    $(".solrButtonFacet").solrButtonFacetWidget(manager);
     $(".solrTextInput").solrTextInputWidget(manager);
     $(".solrRedirectFacet").solrRedirectFacetWidget(manager);
     $("#solrCurrentSelection").solrCurrentSelectionWidget(manager);

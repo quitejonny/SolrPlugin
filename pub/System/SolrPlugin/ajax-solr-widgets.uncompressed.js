@@ -440,6 +440,64 @@
 (function ($) {
 "use strict";
 
+  AjaxSolr.ButtonFacetWidget = AjaxSolr.AbstractJQueryFacetWidget.extend({
+    options: {
+      templateName: '#solrButtonTemplate',
+      value: null
+    },
+    dontClearBeforeRequest: false,
+
+    afterRequest: function () {
+      var self = this;
+      self._super();
+      if(self.dontClearBeforeRequest && !self.manager.store.find('fq', new RegExp('^-?' + self.field + ':'))) {
+        self.set.call(self, '');
+      }
+      self.dontClearBeforeRequest = false;
+      self.$target.fadeIn();
+    },
+
+    beforeRequest: function() {
+      if(this.dontClearBeforeRequest) {
+        return;
+      }
+      this.manager.store.removeByValue('fq', new RegExp('^-?' + this.field + ':'));
+      this.set.call(this, this.options.defaultValue);
+    },
+
+    init: function() {
+      var self = this;
+      self._super();
+      self.template = $.templates(self.options.templateName);
+      if (self.options.defaultValue !== null) {
+        self.set.call(self, self.options.defaultValue);
+      }
+
+      var clickButton = function() {
+        var $this = $(this);
+        var value = $this.attr('href').replace(/^.*#/, '');
+        if(value && value !== '') {
+          self.set.call(self, value);
+        } else {
+          self.manager.store.removeByValue('fq', new RegExp('^-?' + self.field + ':'));
+        }
+        self.dontClearBeforeRequest = true;
+        self.manager.doRequest(0);
+        return false;
+      };
+
+      $(self.target).find('a.jqButton').each(function() {
+        var $this = $(this);
+        $this.click(clickButton);
+      });
+    }
+  });
+
+  AjaxSolr.Helpers.build("ButtonFacetWidget");
+})(jQuery);
+(function ($) {
+"use strict";
+
   AjaxSolr.DefaultFacetWidget = AjaxSolr.AbstractJQueryFacetWidget.extend({
     options: {
       value: null
