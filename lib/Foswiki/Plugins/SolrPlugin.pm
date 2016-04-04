@@ -421,6 +421,62 @@ sub maintenanceHandler {
             }
         }
     });
+
+    Foswiki::Plugins::MaintenancePlugin::registerCheck("SolrPlugin:config:ram", {
+        name => "Solr configuration: RAM",
+        description => "Check if Solr has enough RAM allocated in configuration.",
+        check => sub {
+            require File::Spec;
+            require Digest::SHA;
+
+            my $solrram = File::Spec->catfile('/', 'var', 'solr', 'solr.in.sh');
+            # Good and bad file versions
+            my $badversions = {
+            };
+            my $goodversions = {
+            };
+
+            # Check existance
+            unless ( -f $solram) {
+                return {
+                    result => 1,
+                    priority => $Foswiki::Plugins::MaintenancePlugin::ERROR,
+                    solution => "Could not find file $solrram. Check if Solr is correctly installed."
+                }
+            }
+
+            # Checksum
+            unless ( open( $IN_FILE, '<', $schema ) ) {
+                return {
+                    result => 1,
+                    priority => $Foswiki::Plugins::MaintenancePlugin::ERROR,
+                    solution => "Could not open file $solrram: $!."
+                }
+            };
+            binmode($IN_FILE);
+            local $/ = undef;
+            my $data = <$IN_FILE>;
+            close($IN_FILE);
+
+            my $hash = Digest::SHA::sha256_hex($data);
+            if ($goodversions->{$hash}) {
+                return { result => 0 };
+            } elsif ($badversions{$hash}) {
+                return {
+                    result => 1,
+                    priority => $Foswiki::Plugins::MaintenancePlugin::ERROR,
+                    solution => "File $solrram is known as bad. Please update to."
+                }
+            } else {
+                return {
+                    result => 1,
+                    priority => $Foswiki::Plugins::MaintenancePlugin::WARN,
+                    solution => "File $solrram is unknown as bad and has checksum \'$hash\'."
+                }
+            }
+
+        }
+    });
 }
 
 1;
