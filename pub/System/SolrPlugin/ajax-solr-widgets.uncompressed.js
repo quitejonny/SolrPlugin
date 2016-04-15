@@ -503,6 +503,21 @@
       value: null
     },
 
+    afterRequest: function () {
+      var self = this;
+      self._super();
+      self.oldQuery = self.manager.store.get('q').val();
+    },
+
+    beforeRequest: function() {
+      if(!this.options.queryResets) return;
+      var query = this.manager.store.get('q').val();
+      if(query !== this.oldQuery) {
+        this.manager.store.removeByValue('fq', new RegExp('^-?' + this.field + ':'));
+        if(this.options.value !== null && this.options.value !== undefined) this.set.call(this, this.options.value);
+      }
+    },
+
     init: function() {
       var self = this;
       self._super();
