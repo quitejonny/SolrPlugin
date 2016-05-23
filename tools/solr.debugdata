@@ -1,0 +1,2 @@
+#!/bin/sh
+curl -s "http://localhost:8983/solr/cert-it.qwikinow.de/admin/mbeans?stats=true&wt=json&_=1464007660905"
