@@ -400,10 +400,18 @@
 </div>%TMPL:END%
 %{</verbatim>}%
 
+%TMPL:DEF{"PagerPrev"}%%{
+}%<i class='fa fa-angle-left ma-pager-prev'></i>%{
+}%%TMPL:END%%{
+---------------------------------------------------
+}%%TMPL:DEF{"PagerNext"}%%{
+}%<i class='fa fa-angle-right ma-pager-next'></i>%{
+}%%TMPL:END%
+
 %{<verbatim class="tml">}%
 %TMPL:DEF{"solr::spellchecker"}%<div class='solrSpellchecking'></div>%TMPL:END%
 %TMPL:DEF{"solr::resultsperpage"}%<div class='solrResultsPerPage'></div>%TMPL:END%
-%TMPL:DEF{"solr::pager"}%<div class='solrPager' data-next-text="%MAKETEXT{"Next"}%" data-prev-text="%MAKETEXT{"Previous"}%" data-enable-scroll="%IF{"'%scroll%'=~'^(true|false)$'" then="%scroll%" else="false"}%" ></div>%TMPL:END%
+%TMPL:DEF{"solr::pager"}%<div class='solrPager' data-next-text="%ENCODE{"%TMPL:P{"PagerNext"}%" type="safe"}%" data-prev-text="%ENCODE{"%TMPL:P{"PagerPrev"}%" type="safe"}%" data-enable-scroll="%IF{"'%scroll%'=~'^(true|false)$'" then="%scroll%" else="false"}%" ></div>%TMPL:END%
 %TMPL:DEF{"solr::footer"}%<div class='solrFooter'>%TMPL:P{"solr::pager" scroll="true"}%</div>%TMPL:END%
 %{</verbatim>}%
 
