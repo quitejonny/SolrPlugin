@@ -57,7 +57,7 @@
     isSelected: function(value) {
       var self = this,
           query = self.getQueryByKey(value);
-      
+
       if (query) {
         value = query.value;
       }
@@ -107,14 +107,14 @@
       // filter never the less
       $.each(allFacetCounts, function(index, value) {
         if (
-          value.count >= self.options.facetMincount && 
+          value.count >= self.options.facetMincount &&
           (!self.options.exclude || !value.facet.match(self.options.exclude)) &&
           (!self.options.include || value.facet.match(self.options.include))
         ) {
           facetCounts.push(value);
         }
       });
-      
+
       return (self.options.facetSortReverse?facetCounts.reverse():facetCounts);
     },
 
@@ -126,7 +126,7 @@
       self.options = $.extend({}, self.defaults, self.options, self.$target.data());
       self.facetType = self.options.facetType;
 
-      // propagate some 
+      // propagate some
       self['facet.mincount'] = self.options.facetMincount;
       self['facet.sort'] = self.options.facetSort;
       self['facet.prefix'] = self.options.facetPrefix;
@@ -231,7 +231,7 @@
         // SMELL: dependency on jquery.ui.datepicker
         return $.datepicker.formatDate(this.options.dateFormat, new Date(facet));
       }
-      
+
       query = self.getQueryByValue(facet);
       return (query && query.key)?query.key:_(facet);
     },
@@ -251,12 +251,12 @@
       if (self.facetCounts.length == 0) {
         self.$target.hide();
         return;
-      } 
+      }
 
       if (this.options.hideSingle && self.facetCounts.length == 1) {
         self.$target.hide();
         return;
-      } 
+      }
 
       self.container.html(self.template.render({
         widget: self
@@ -279,10 +279,10 @@
       self.$target.fadeIn();
 
       self.container.find("input[type='"+self.inputType+"'], select").change(function() {
-        var $this = $(this), 
+        var $this = $(this),
             title = $this.attr("title"),
             value = $this.val();
-        
+
         if (self.facetType == 'facet_ranges') {
           value = value+' TO '+value+self["facet.range.gap"];
           if (title) {
@@ -409,7 +409,7 @@
         foswiki: window.foswiki
       }));
 
-      self.checkbox = 
+      self.checkbox =
         self.$target.find("input[type='checkbox']").change(function() {
           if ($(this).is(":checked")) {
             if (self.options.inverse) {
@@ -470,16 +470,14 @@
 
     clickHandler: function (page) {
       var self = this;
-      return function () {
-        var start = page * (self.manager.response.responseHeader.params && self.manager.response.responseHeader.params.rows || 20)
-        //console.log("page=",page,"start="+start);
-        //self.manager.store.get('start').val(start);
-        self.manager.doRequest(start);
-        if (self.options.enableScroll) {
-          $.scrollTo(self.options.scrollTarget, self.options.scrollSpeed);
-        }
-        return false;
+      var start = page * (self.manager.response.responseHeader.params && self.manager.response.responseHeader.params.rows || 20)
+      //console.log("page=",page,"start="+start);
+      //self.manager.store.get('start').val(start);
+      self.manager.doRequest(start);
+      if (self.options.enableScroll) {
+        $.scrollTo(self.options.scrollTarget, self.options.scrollSpeed);
       }
+      return false;
     },
 
     afterRequest: function () {
@@ -509,13 +507,6 @@
       self.$target.show();
 
       currentPage = Math.ceil(start / entriesPerPage);
-      //console.log("currentPage=",currentPage,"lastPage=",lastPage);
-
-      if (currentPage > 0) {
-        $("<a href='#' class='solrPagerPrev'>"+self.options.prevText+"</a>").click(self.clickHandler(currentPage-1)).appendTo(self.$target);
-      } else {
-        self.$target.append("<span class='solrPagerPrev foswikiGrayText'>"+self.options.prevText+"</span>");
-      }
 
       startPage = currentPage - 4;
       endPage = currentPage + 4;
@@ -531,46 +522,35 @@
         endPage = lastPage;
       }
 
-      if (startPage > 0) {
-        $("<a href='#'>1</a>").click(self.clickHandler(0)).appendTo(self.$target);
-      }
-
-      if (startPage > 1) {
-        self.$target.append("<span class='solrPagerEllipsis'>&hellip;</span>");
-      }
-
-      count = 1;
-      marker = '';
-      for (var i = startPage; i <= endPage; i++) {
-        marker = i == currentPage?'current':'';
-        $("<a href='' class='"+marker+"'>"+(i+1)+"</a>").click(self.clickHandler(i)).appendTo(self.$target);
-        count++;
-      }
-
-      if (endPage < lastPage-1) {
-        self.$target.append("<span class='solrPagerEllipsis'>&hellip;</span>");
-      }
-
-      if (endPage < lastPage) {
-        marker = currentPage == lastPage?'current':'';
-        $("<a href='#' class='"+marker+"'>"+(lastPage+1)+"</a>").click(self.clickHandler(lastPage)).appendTo(self.$target);
-      }
-
-      if (currentPage < lastPage) {
-        $("<a href='#' class='solrPagerNext'>"+self.options.nextText+"</a>").click(self.clickHandler(currentPage+1)).appendTo(self.$target);
-      } else {
-        self.$target.append("<span class='solrPagerNext foswikiGrayText'>"+self.options.nextText+"</span>");
-      }
+      self.$target.pagination({
+        dataSource: response.response.docs,
+        skipAjax: true,
+        totalNumber: totalEntries,
+        pageSize: entriesPerPage,
+        pageNumber: currentPage + 1,
+        prevText: self.options.prevText,
+        nextText: self.options.nextText,
+        ulClassName: "pagination",
+        afterPageOnClick: function(event, pageNumber) {
+          self.clickHandler(pageNumber - 1);
+        },
+        afterPreviousOnClick: function(event) {
+          self.clickHandler(currentPage - 1);
+        },
+        afterNextOnClick: function(event) {
+          self.clickHandler(currentPage + 1);
+        }
+      });
     }
   });
 
-  // integrate into jQuery 
+  // integrate into jQuery
   AjaxSolr.Helpers.build("PagerWidget");
 
 })(jQuery);
 (function ($) {
 "use strict";
-  
+
   AjaxSolr.ResultsPerPageWidget = AjaxSolr.AbstractJQueryWidget.extend({
     defaults: {
       rows: 20,
@@ -626,7 +606,7 @@
     }
   });
 
-  // integrate into jQuery 
+  // integrate into jQuery
   AjaxSolr.Helpers.build("ResultsPerPageWidget");
 
 })(jQuery);
@@ -679,7 +659,7 @@
 
       // rewrite view urls
       $.each(response.response.docs, function(index,doc) {
-        var containerWeb = doc.container_web, 
+        var containerWeb = doc.container_web,
             containerTopic = doc.container_topic;
 
         if (doc.type === "topic") {
@@ -708,7 +688,7 @@
             return encodeURIComponent(text);
           },
           getTemplateName: function() {
-            var type = this.data.type, 
+            var type = this.data.type,
                 topicType = this.data.field_TopicType_lst || [],
                 templateName;
 
@@ -720,15 +700,15 @@
                 }
               }
               return "#solrHitTemplate_topic";
-            } 
+            }
 
             if (type.match(/png|gif|jpe?g|tiff|bmp/)) {
               return "#solrHitTemplate_image";
-            } 
+            }
 
             if (type.match(/comment/)) {
               return "#solrHitTemplate_comment";
-            } 
+            }
 
             var other = 'script#solrHitTemplate_'+type;
             if($(other).length) return other;
@@ -750,12 +730,12 @@
               if (list.length > limit) {
                 result += " ...";
               }
-            } 
+            }
 
             return result;
           },
           renderTopicInfo: function() {
-            var cats = this.data.field_Category_flat_lst, 
+            var cats = this.data.field_Category_flat_lst,
                 tags = this.data.tag,
                 lines, result = '';
 
@@ -769,7 +749,7 @@
               if (cats.length > 10) {
                 result += " ...";
               }
-            } 
+            }
             if (tags && tags.length) {
               if (cats && cats.length) {
                 result += ", "+_("tagged", self.options.dictionary)+" ";
@@ -894,7 +874,7 @@
         }
       }, self.options.instantSearchDelay);
     },
-  
+
     init: function () {
       var self = this, search;
 
@@ -912,7 +892,7 @@
             self.doRequest = true;
           }
         });
-      } 
+      }
 
       self.$target.submit(function() {
         var value = self.$input.val();
@@ -945,7 +925,7 @@
     selectionContainer: null,
 
     getKeyOfValue: function(field, value) {
-      var self = this, 
+      var self = this,
           key = value.replace(/^[\(\[]?(.*?)[\]\)]?$/, "$1"),
           responseParams = self.manager.response.responseHeader.params,
           facetTypes = ["facet.field", "facet.query", "facet.date"], //"facet.range"],
@@ -983,7 +963,7 @@
     },
 
     afterRequest: function () {
-      var self = this, 
+      var self = this,
           fq = self.manager.store.values('fq'),
           q = self.manager.store.get('q').val(),
           match, field, value, key, count = 0;
@@ -1003,8 +983,8 @@
           count++;
           match = fq[i].match(/^(?:{!.*?})?(.*?):(.*)$/);
           field = match[1];
-          value = match[2]; 
-          key = self.getKeyOfValue(field, value); 
+          value = match[2];
+          key = self.getKeyOfValue(field, value);
           self.addSelection(field, key, self.removeFacet(field, value));
         }
       }
@@ -1062,7 +1042,7 @@
     }
   });
 
-  // integrate into jQuery 
+  // integrate into jQuery
   AjaxSolr.Helpers.build("CurrentSelectionWidget");
 
 
@@ -1084,7 +1064,7 @@
     },
 
     afterRequest: function() {
-      var self = this, 
+      var self = this,
           currentSort = self.manager.store.get("sort"),
           val;
 
@@ -1113,7 +1093,7 @@
         self.manager.doRequest(0);
       });
     }
-    
+
   });
 
   AjaxSolr.Helpers.build("SortWidget");
@@ -1140,7 +1120,7 @@
     facetType: 'facet_fields',
 
     getFacetCounts: function() {
-      var self = this, 
+      var self = this,
           facetCounts = self._super(),
           floor = -1, ceiling = 0, diff, incr = 1,
           selectedValues = {};
@@ -1148,7 +1128,7 @@
       $.each(self.getQueryValues(self.getParams()), function(index, value) {
         selectedValues[value.replace(/^"(.*)"$/, "$1")] = true;
       });
-     
+
       // normalize, floor, ceiling
       $.each(facetCounts, function(index, value) {
         if (self.options.normalize) {
@@ -1164,13 +1144,13 @@
           floor = value.normCount;
         }
       });
-      
+
       // compute the weights and rgb
       diff = ceiling - floor;
       if (diff) {
         incr = diff / (self.options.buckets-1);
-      } 
-      
+      }
+
       // sort
       facetCounts.sort(function(a,b) {
         var aName = a.facet.toLowerCase(), bName = b.facet.toLowerCase();
@@ -1197,7 +1177,7 @@
     },
 
     fadeRGB: function(weight) {
-      var self = this, 
+      var self = this,
           max = self.options.buckets + self.options.offset,
           red = Math.round(self.options.startColor[0] * (max-weight) / max + self.options.endColor[0] * weight / max),
           green = Math.round(self.options.startColor[1]*(max-weight)/max+self.options.endColor[1]*weight/max),
@@ -1207,7 +1187,7 @@
     },
 
     afterRequest: function() {
-      var self = this, 
+      var self = this,
           facetCounts = self.getFacetCounts();
 
       if (facetCounts.length) {
@@ -1274,7 +1254,7 @@
 
         dict = AjaxSolr.Dicts["default"];
         $.each(self.hierarchy, function(i, entry) {
-          var id = entry.id, 
+          var id = entry.id,
               title = entry.title,
               label = entry.id.split(/\s*\.\s*/).pop();
           dict.set(id, title);
@@ -1282,7 +1262,7 @@
         });
       }
 
-      
+
       return self.hierarchy;
     },
 
@@ -1319,7 +1299,7 @@
 
       if (typeof(self.facetCounts) === 'undefined' || self.facetCounts.length == 0) {
         return;
-      } 
+      }
 
       $.each(self.facetCounts, function(i, entry) {
         facetCounts[entry.facet] = entry.count;
@@ -1331,7 +1311,7 @@
 
       if (this.options.hideSingle && self.facetCounts.length == 1) {
         return;
-      } 
+      }
 
       current = self.getQueryValues(self.getParams());
       if (typeof(current) === 'undefined') {
@@ -1370,7 +1350,7 @@
       self.container.html(self.template.render(children, {
         renderFacetCount: function(facet) {
           var count = self.facetCounts[facet];
-          return count?"<span class='solrHierarchyFacetCount'>("+count+")</span>":""; 
+          return count?"<span class='solrHierarchyFacetCount'>("+count+")</span>":"";
         },
         getCategory: function(id) {
           return self.hierarchy[id];

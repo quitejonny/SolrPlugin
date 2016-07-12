@@ -12,7 +12,7 @@
 .solrSearchHits h3 {
   margin:0px;
   font-size:100%;
-  line-height:1.3864em; 
+  line-height:1.3864em;
   padding:0px;
 }
 
@@ -153,32 +153,10 @@
   margin:2em 0em 0em;
   border-top:1px solid #ddd;
 }
-.solrPagerPrev,
-.solrPagerNext,
-.solrPager a {
-  margin:0px 1px;
-  padding:2px 5px;
-  text-decoration:none;
-}
+
 .solrHover input,
 .solrHover label {
   cursor:pointer;
-}
-.solrPager a.current:visited,
-.solrPager a:hover,
-.solrPager a.current {
-  color:#fff;
-  background:#bb2222;
-  text-decoration:none;
-}
-.solrPagerEllipsis {
-  margin:0px 5px;
-}
-.solrPager .solrPagerPrev {
-  margin-right:0.5em;
-}
-.solrPager .solrPagerNext {
-  margin-left:0.5em;
 }
 
 .solrSpellchecking {
@@ -273,3 +251,56 @@
 input.solrTextInput {
     background-color: white;
 }
+
+
+/*.pagination-container {
+  padding-left: 10px;
+}
+
+.pagination {
+  display: inline-block;
+  li {
+    display: inline;
+    &.paginationjs-page a {
+      border-radius: $ma-border-radius;
+      padding: 10px 13px;
+      color: $ma-dark-grey;
+      background-color: transparent;
+      &:hover {
+        color: $ma-primary;
+        text-decoration: none;
+      }
+      & a {
+        float: none;
+      }
+    }
+    &.active {
+        > a {
+        @include ma-font('bold');
+        color: $ma-primary;
+        }
+    }
+  }
+}
+
+.ma-pager-prev,
+.ma-pager-next {
+  color: $ma-dark-grey;
+  background-color: $ma-light-grey;
+  border-radius: $ma-border-radius;
+  padding: 10px 13px;
+  &:hover {
+    background-color: $ma-medium-grey;
+  }
+}
+
+.disabled {
+.ma-pager-prev,
+.ma-pager-next {
+    opacity: 0.2;
+  &:hover {
+    opacity: 0.2;
+  }
+}
+}
+*/
