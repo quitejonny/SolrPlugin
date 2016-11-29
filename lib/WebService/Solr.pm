@@ -1,6 +1,6 @@
 package WebService::Solr;
 
-use Any::Moose;
+use Moo;
 
 use Encode ();
 use URI;
