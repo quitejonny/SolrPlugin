@@ -1,6 +1,6 @@
 package WebService::Solr::Query;
 
-use Any::Moose;
+use Moo;
 
 use overload q("") => 'stringify';
 

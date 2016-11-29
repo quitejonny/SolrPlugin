@@ -1,6 +1,6 @@
 package WebService::Solr::Response;
 
-use Any::Moose;
+use Moo;
 
 use WebService::Solr::Document;
 ## disabled too buggy
