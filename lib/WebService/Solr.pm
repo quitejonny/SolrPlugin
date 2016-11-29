@@ -202,7 +202,7 @@ sub _send_update {
     return $self->last_response;
 }
 
-no Any::Moose;
+no Moo;
 
 __PACKAGE__->meta->make_immutable;
 

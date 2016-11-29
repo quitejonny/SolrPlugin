@@ -276,7 +276,7 @@ sub __dumper {
     return Data::Dumper::Dumper( @_ );
 }
 
-no Any::Moose;
+no Moo;
 
 __PACKAGE__->meta->make_immutable;
 

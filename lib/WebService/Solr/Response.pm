@@ -137,7 +137,7 @@ sub ok {
     return defined $status && $status == 0;
 }
 
-no Any::Moose;
+no Moo;
 
 __PACKAGE__->meta->make_immutable;
 
