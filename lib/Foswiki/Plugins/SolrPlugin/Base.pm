@@ -35,6 +35,8 @@ sub new {
   my $this = {
     session => $session,
     url => $Foswiki::cfg{SolrPlugin}{Url},    # || 'http://localhost:8983',
+    wikiHost => $Foswiki::cfg{SolrPlugin}{WikiHost} || 'foswiki',
+    wikiHostMap => $Foswiki::cfg{SolrPlugin}{WikiHostMap} || {},
     timeout => $Foswiki::cfg{SolrPlugin}{Timeout},
     optimizeTimeout => $Foswiki::cfg{SolrPlugin}{OptimizeTimeout},
     @_
@@ -257,10 +259,23 @@ sub entityDecode {
 sub urlDecode {
   my ($this, $text) = @_;
 
-  # SMELL: not utf8-safe
-  $text =~ s/%([\da-f]{2})/chr(hex($1))/gei;
+  my $decoded = $text =~ s/%([\da-fA-F]{2})/chr(hex($1))/ger;
 
-  return $text;
+  if( $decoded ne $text && $Foswiki::UNICODE ) {
+    eval {
+        return Encode::decode_utf8( $decoded, Encode::FB_CROAK );
+    };
+    # try different other encodings
+    foreach my $encoding ( qw(Windows-1252 7bit-jis GB18030 euc-jp shiftjis) ) {
+      eval {
+        return Encode::decode($encoding, $decoded, Encode::FB_CROAK);
+      };
+    }
+    # still did not get it, giving up and escape it again, so at
+    # least we won't crash
+    return $text;
+  }
+  return $decoded;
 }
 
 ###############################################################################
@@ -418,12 +433,12 @@ sub plainify {
 
   # from Fosiki::Render
   $text =~ s/\r//g;                         # SMELL, what about OS10?
-  $text =~ s/%META:[A-Z].*?}%//g;
+  $text =~ s/%META:[A-Z].*?\}%//g;
 
   $text =~ s/%WEB%/$web/g;
   $text =~ s/%TOPIC%/$topic/g;
   $text =~ s/%WIKITOOLNAME%/$wtn/g;
-  $text =~ s/%$Foswiki::regex{tagNameRegex}({.*?})?%//g;    # remove
+  $text =~ s/%$Foswiki::regex{tagNameRegex}(\{.*?\})?%//g;  # remove
 
   # Format e-mail to add spam padding (HTML tags removed later)
   $text =~ s/$STARTWW((mailto\:)?[a-zA-Z0-9-_.+]+@[a-zA-Z0-9-_.]+\.[a-zA-Z0-9-_]+)$ENDWW//gm;
@@ -460,10 +475,10 @@ sub plainify {
   # remove/escape special chars
   $text =~ s/\\//g;
   $text =~ s/"//g;
-  $text =~ s/%{//g;
-  $text =~ s/}%//g;
+  $text =~ s/%\{//g;
+  $text =~ s/\}%//g;
   $text =~ s/%//g;
-  $text =~ s/{\s*}//g;
+  $text =~ s/\{\s*\}//g;
   $text =~ s/#+//g;
   $text =~ s/\$perce?nt//g;
   $text =~ s/\$dollar//g;
@@ -522,6 +537,21 @@ sub toUtf8 {
 #  my $charset = $Foswiki::cfg{Site}{CharSet};
 #  $string = Encode::decode($charset, $string);
   return Encode::encode('utf-8', $string);
+}
+
+##############################################################################
+sub buildHostFilter {
+  my ($this, $skipMapping) = @_;
+  my $host = $this->{wikiHost};
+  return "host:$host" if $skipMapping;
+
+  my $mapping = $this->{wikiHostMap};
+  my @filters = "host:$host";
+  while (my ($k, $v) = each %$mapping) {
+    push @filters, "(web:$k host:$v)";
+  }
+
+  "(". join(" OR ", @filters) .")";
 }
 
 1;

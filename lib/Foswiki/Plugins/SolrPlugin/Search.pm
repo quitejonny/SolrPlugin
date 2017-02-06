@@ -960,7 +960,7 @@ sub restSOLRSIMILAR {
   return '' unless defined $this->{solr};
   my $query = Foswiki::Func::getCgiQuery();
   my $theQuery = $query->param('q');
-  $theQuery =  "id:$theWeb.$theTopic" unless defined $theQuery;
+  $theQuery =  "id:".($this->{wikiHostMap}{$theWeb} || $this->{wikiHost})."#$theWeb.$theTopic" unless defined $theQuery;
   my %params = map {$_ => join(" " , @{[$query->param($_)]})} $query->param();
   delete $params{'q'};
 
@@ -983,7 +983,7 @@ sub handleSOLRSIMILAR {
   return $this->inlineError("can't connect to solr server") unless defined $this->{solr};
 
   my $theQuery = $params->{_DEFAULT};
-  $theQuery = "id:$theWeb.$theTopic" unless defined $theQuery;
+  $theQuery =  "id:".($this->{wikiHostMap}{$theWeb} || $this->{wikiHost})."#$theWeb.$theTopic" unless defined $theQuery;
 
   my $response = $this->doSimilar($theQuery, $params);
 
@@ -1022,6 +1022,8 @@ sub doSimilar {
   my @filter = $this->parseFilter($theFilter);
   push(@filter, "(access_granted:$wikiUser OR access_granted:all)")
     unless Foswiki::Func::isAnAdmin($wikiUser);
+  # this one doesn't use the solrSearch method, so add host filter here
+  push @filter, $this->buildHostFilter;
 
   my $solrParams = {
     "q" => $theQuery,
@@ -1275,6 +1277,14 @@ sub solrSearch {
 
   $params ||= {};
   $params->{'q'} = $query if $query;
+  $params->{fq} ||= [];
+  push @{$params->{fq}}, $this->buildHostFilter;
+
+  while (my ($k, $v) = each %$params) {
+    next unless $k =~ /^f\.[a-zA-Z_0-9]+\.facet\.mincount$/;
+    my $val = shift @{$v};
+    push @{$params->{$k}}, $val || 1;
+  }
 
   #print STDERR "solrSearch($query), params=".dump($params)."\n";
 
@@ -1303,7 +1313,7 @@ sub getFacetParams {
   my $theFacetLimit = $params->{facetlimit};
   my $theFacetSort = $params->{facetsort} || '';
   my $theFacetOffset = $params->{facetoffset};
-  my $theFacetMinCount = $params->{facetmincount};
+  my $theFacetMinCount = $params->{facetmincount} || 1;
   my $theFacetPrefix = $params->{facetprefix};
   my $theFacetMethod = $params->{facetmethod};
 

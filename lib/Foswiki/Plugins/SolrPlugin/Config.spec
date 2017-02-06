@@ -3,9 +3,25 @@
 
 # **STRING**
 # Url where to find the solr server. The url has got the format <code>http://&lt;domain>:&lt;port>/solr/&lt;core></code>. 
-# The default core name is <code>foswiki</code>. When you installed VirtualHostingContrib then use the virtual domain as the core name per convention, 
-# e.g. <code>http://localhost:8983/solr/www.foswiki.org</code>
+# The default core name is <code>foswiki</code>.
 $Foswiki::cfg{SolrPlugin}{Url} = 'http://localhost:8983/solr/foswiki';
+
+# **STRING EXPERT**
+# Hostname to be indexed with documents. This exists to be overridden for
+# individual hosts in VirtualHostingContrib.
+$Foswiki::cfg{SolrPlugin}{WikiHost} = 'foswiki';
+
+# **PERL EXPERT**
+# Mapping of web names to primary host for each web.
+# This allows you to index symlinked webs in only one host, and reuse that
+# part of the index for all of the other hosts, saving indexing time.
+# Subweb names should contain dots rather than slashes, as in most parts of
+# SolrPlugin.
+# At present, if one of the webs configured here uses access restrictions, the
+# set of permitted users must be identical in all of the wikis. Specifically,
+# restricting access to logged in users only works if the set of users is the
+# same in all wikis.
+$Foswiki::cfg{SolrPlugin}{WikiHostMap} = {};
 
 # **NUMBER CHECK='undefok'**
 # default timeout in seconds for an HTTP transaction to the SOLR server 
@@ -113,10 +129,18 @@ $Foswiki::cfg{SolrPlugin}{SupportedLanguages} = {
 
 # **PERL H EXPERT**
 # This setting is required to enable executing the solrsearch script from the bin directory
-$Foswiki::cfg{SwitchBoard}{solrsearch} = ['Foswiki::Plugins::SolrPlugin', 'searchCgi', { 'solrsearch' => 1 }];
+$Foswiki::cfg{SwitchBoard}{solrsearch} = {
+    package => 'Foswiki::Plugins::SolrPlugin',
+    function => 'searchCgi',
+    context => { 'solrsearch' => 1 },
+};
 
 # **PERL H EXPERT**
-$Foswiki::cfg{SwitchBoard}{solrindex} = ['Foswiki::Plugins::SolrPlugin', 'indexCgi', { 'solrindex' => 1 }];
+$Foswiki::cfg{SwitchBoard}{solrindex} = {
+    package => 'Foswiki::Plugins::SolrPlugin',
+    function => 'indexCgi',
+    context => { 'solrindex' => 1 },
+};
 
 # **STRING**
 # Usernames and groups, that are allowed to access the rest interface when TaskDaemonPlugin is active.

@@ -43,6 +43,7 @@ sub new {
 
   $this->{url} = $Foswiki::cfg{SolrPlugin}{UpdateUrl} || $Foswiki::cfg{SolrPlugin}{Url};
 
+  $this->{_addCount} = 0;
   $this->{_groupCache} = {};
   $this->{_webACLCache} = {};
 
@@ -72,6 +73,7 @@ sub new {
 sub finish {
   my $this = shift;
 
+  undef $this->{_addCount};
   undef $this->{_knownUsers};
   undef $this->{_groupCache};
   undef $this->{_webACLCache};
@@ -109,6 +111,7 @@ sub index {
       $this->update($web, $mode);
     }
 
+    $this->commit($mode eq 'full' && !$topic);
     $this->optimize() if $optimize;
   }
 
@@ -155,6 +158,15 @@ sub afterUploadHandler {
   $this->indexAttachment($web, $topic, $attachment, \@aclFields);
 }
 
+sub _filterMappedWebs {
+  my ($this, $web, $skipLog) = @_;
+
+  my $targetHost = $this->{wikiHostMap}{$_} || $this->{wikiHost};
+  return 1 if $this->{wikiHost} eq $targetHost;
+  $this->log("$_: not indexing because it belongs to $targetHost") unless $skipLog;
+  0;
+}
+
 ################################################################################
 # update documents of a web - either in fully or incremental
 # on a full update, the complete web is removed from the index prior to updating it;
@@ -167,7 +179,8 @@ sub update {
   my $searcher = Foswiki::Plugins::SolrPlugin::getSearcher();
 
   # remove non-existing webs
-  my @webs = $searcher->getListOfWebs();
+  my @webs = grep { $this->_filterMappedWebs($_, 1) } $searcher->getListOfWebs();
+
   foreach my $thisWeb (@webs) {
     next if Foswiki::Func::webExists($thisWeb);
     $this->log("$thisWeb doesn't exist anymore ... deleting");
@@ -184,6 +197,7 @@ sub update {
       push @webs, Foswiki::Func::getListOfWebs("user", $item);
     }
   }
+  @webs = grep { $this->_filterMappedWebs($_) } @webs;
 
   # TODO: check the list of webs we had the last time we did a full index
   # of all webs; then possibly delete them
@@ -304,6 +318,7 @@ sub indexTopic {
 
   unless (defined $meta && defined $text) {
     ($meta, $text) = Foswiki::Func::readTopic($web, $topic);
+    $text = '' unless defined $text; # not sure why this happens, but it does
   }
 
   # remove inline base64 resources
@@ -325,7 +340,14 @@ sub indexTopic {
   }
 
   # get all outgoing links from topic text
-  $this->extractOutgoingWikiLinks($web, $topic, $origText, \%outgoingWikiLinks, \%outgoingAttachmentLinks, \%outgoingAttachmentTopicLinks);
+  my $outgoing = {
+    topic => \%outgoingWikiLinks,
+    topicred => {},
+    attachment => \%outgoingAttachmentLinks,
+    attachmentred => {},
+    attachmenttopic => \%outgoingAttachmentTopicLinks,
+  };
+  $this->extractOutgoingWikiLinks($web, $topic, $origText, $outgoing);
   $this->extractOutgoingLinks($web, $topic, $origText, \%outgoingLinks);
 
   # all webs
@@ -484,8 +506,8 @@ sub indexTopic {
               my $webtopic = $value;
               $webtopic =~ s#[?\#].*##;
               my ($vweb, $vtopic) = Foswiki::Func::normalizeWebTopicName(undef, $webtopic);
-              if(Foswiki::Func::topicExists($vweb, $vtopic)) {
-                  $outgoingWikiLinks{$webtopic} = 1;
+              if(Foswiki::Func::isValidWebName($vweb) && Foswiki::Func::isValidTopicName($vtopic, 1)) {
+                  $outgoingWikiLinks{$webtopic} = 1 if Foswiki::Func::topicExists($vweb, $vtopic);
               }
           }
 
@@ -569,6 +591,13 @@ sub indexTopic {
     $doc->add_fields(outgoingAttachment_lst => $link);
   }
 
+  foreach my $link (keys %{$outgoing->{topicred}}) {
+    $doc->add_fields(outgoingWiki_broken_lst => $link);
+  }
+  foreach my $link (keys %{$outgoing->{attachmentred}}) {
+    $doc->add_fields(outgoingAttachment_broken_lst => $link);
+  }
+
   # all prefs are of type _t
   # TODO it may pay off to detect floats and ints
   my @prefs = $meta->find('PREFERENCE');
@@ -641,7 +670,7 @@ sub indexTopic {
       if ( ( exists $attachment->{comment} && $attachment->{comment} ) eq 'ProVisPlugin Upload' || $attachment->{name} =~ m/^__provis_.*/ ) {
         my @arr = split( '\.', $attachment->{name} );
         my $name = $arr[0];
-        my $pattern = "%PROCESS{.*name=\"$name\".*}%";
+        my $pattern = "%PROCESS\\{.*name=\"$name\".*\\}%";
         if ( $origText !~ m/$pattern/ ) {
           next;
         }
@@ -723,91 +752,114 @@ sub extractOutgoingLinks {
   my $removed = {};
 
   # normal wikiwords
+  # Must take care not to take out macros as well ... which is difficult.
+  # Checking for a leading % is not optimal, but should cover most cases.
   $text = $this->takeOutBlocks($text, 'noautolink', $removed);
-  $text =~ s#(?:($Foswiki::regex{webNameRegex})\.)?($Foswiki::regex{wikiWordRegex}|$Foswiki::regex{abbrevRegex})#$this->_addLink($outgoingLinks, $web, $topic, $1, $2)#gexom;
+  $text =~ s#(\%?)(?:($Foswiki::regex{webNameRegex})\.)?($Foswiki::regex{wikiWordRegex}|$Foswiki::regex{abbrevRegex})#($1)?$1 . ($2 || '') . ($3 || ''):($this->_addLink({topic => $outgoingLinks}, $web, $topic, $2, $3), '')#gexm;
   $this->putBackBlocks(\$text, $removed, 'noautolink');
 
   # square brackets
-  $text =~ s#\[\[([^\]\[\n]+)\]\]#$this->_addLink($outgoingLinks, $web, $topic, undef, $1)#ge;
-  $text =~ s#\[\[([^\]\[\n]+)\]\[([^\]\n]+)\]\]#$this->_addLink($outgoingLinks, $web, $topic, undef, $1)#ge;
-
+  $text =~ s#\[\[([^\]\[\n]+)\]\]#$this->_addLink({topic => $outgoingLinks}, $web, $topic, undef, $1), ''#ge;
+  $text =~ s#\[\[([^\]\[\n]+)\]\[(?:[^\]\n]+)\]\]#$this->_addLink({topic => $outgoingLinks}, $web, $topic, undef, $1), ''#ge;
 }
 
 sub extractOutgoingWikiLinks {
-  my ($this, $web, $topic, $text, $outgoingLinks, $outgoingLinksAttachments, $outgoingLinksAttachmentTopics) = @_;
+  my ($this, $web, $topic, $text, $outgoing) = @_;
 
-  my $attachmentUrlRegex = "(?:\%ATTACHURL\%|\%ATTACHURLPATH\%|\%PUBURL\%|\%PUBURLPATH\%|$Foswiki::cfg{PubUrlPath})/";
-  my $attachmentBracketRegex = "$attachmentUrlRegex([^\]\[\n]+)/([^\]\[\n/]+)";
+  my $pubUrlRegex = "(?:\%PUBURL\%|\%PUBURLPATH\%|$Foswiki::cfg{PubUrlPath})/";
+  my $pubBracketRegex = "$pubUrlRegex([^\]\[\n]+)/([^\]\[\n/]+)";
 
-  # topics
+  my $attachUrlRegex = "(?:\%ATTACHURL\%|\%ATTACHURLPATH\%)/";
+  my $attachBracketRegex = "$attachUrlRegex([^\]\[\n/]+)";
+
   # square brackets
-  while($text =~ m#\[\[([^\]\[\n]+)\]\]#g) {
-      $this->_addLink($outgoingLinks, $web, $topic, undef, $1);
-  }
-  while($text =~ m#\[\[([^\]\[\n]+)\]\[([^\]\n]+)\]\]#g) {
-      $this->_addLink($outgoingLinks, $web, $topic, undef, $1);
-  }
-
-  # attachments:
-  # square brackets
-  while($text =~ m#\[\[$attachmentBracketRegex\]\]#g) {
-      $this->_addAttachmentLink($outgoingLinksAttachments, $outgoingLinksAttachmentTopics, $web, $topic, undef, $1, $2);
-  }
-  while($text =~ m#\[\[$attachmentBracketRegex\]\[(?:[^\]\n]+)\]\]#g) {
-      $this->_addAttachmentLink($outgoingLinksAttachments, $outgoingLinksAttachmentTopics, $web, $topic, undef, $1, $2);
-  }
-  # img tags etc.
-  while($text =~ m#(?:src|href)\s*=\s*('|")$attachmentUrlRegex([^\n]+?)/([^\n/]+?)\1#g) {
-      $this->_addAttachmentLink($outgoingLinksAttachments, $outgoingLinksAttachmentTopics, $web, $topic, undef, $2, $3);
+  while ($text =~ m{\[\[  ([^\]\[\n]+) \]
+      (?: \[        # optional link title
+        ([^\]\n]+)
+      \])?
+      \]}gx) {
+    my $link = $1;
+    if ($link =~ /^$pubBracketRegex$/) {
+      $this->_addAttachmentLink($outgoing, $web, $topic, undef, $1, $2);
+    } elsif ($link =~ /^$attachBracketRegex$/) {
+      $this->_addAttachmentLink($outgoing, $web, $topic, undef, "$web.$topic", $1);
+    } else {
+      $this->_addLink($outgoing, $web, $topic, undef, $link);
+    }
   }
 
+  # links, img tags, ...
+  while ($text =~ m#(?:src|href)=(["'])([^"']+)\1#g) {
+    my $link = $2;
+    if ($link =~ m#^$pubUrlRegex([^\n]+?)/([^\n/]+)$#) {
+      $this->_addAttachmentLink($outgoing, $web, $topic, undef, $1, $2);
+    } elsif ($link =~ m#^$attachUrlRegex([^\n/]+)$#) {
+      $this->_addAttachmentLink($outgoing, $web, $topic, undef, "$web.$topic", $1);
+    } else {
+      $this->_addLink($outgoing, $web, $topic, undef, $link);
+    }
+  }
 }
 
 sub _addAttachmentLink {
-  my ($this, $links, $topiclinks, $baseWeb, $baseTopic, $web, $topic, $attachment) = @_;
-
-  # TODO: url escapes
+  my ($this, $outgoing, $baseWeb, $baseTopic, $web, $topic, $attachment) = @_;
 
   $topic = "$web.$topic" if $web;
-  $topic =~ s/\%SCRIPTURL(PATH)?{.*?}\%\///g;
-  $topic =~ s/%WEB%/$baseWeb/g;
-  $topic =~ s/%TOPIC%/$baseTopic/g;
+  $topic =~ s/%(?:BASE)?WEB%/$baseWeb/g;
+  $topic =~ s/%(?:BASE)?TOPIC%/$baseTopic/g;
+  return if $topic =~ /[\[\]<>{}#?\$! ]/;
+  return if $topic =~ m#\%/#; # bail out: contains macros we do not understand eg. %ATTACHURL%/
+  $topic = $this->urlDecode($topic);
 
-  ($web, $topic) = $this->normalizeWebTopicName($web || $baseWeb, $topic);
+  ($web, $topic) = $this->normalizeWebTopicName($baseWeb, $topic);
+  $web =~ s#/#.#g;
+  return if $web =~ /^\./;
 
   $attachment =~ s/\?.*//;
   $attachment =~ s/#.*//;
+  return if $attachment =~ /[{}\$]/;
 
   my $link = "$web.$topic/$attachment";
-  return '' unless Foswiki::Func::topicExists($web, $topic);
 
-  $links->{$link} = 1;
-  $topiclinks->{"$web.$topic"} = 1;
+  unless (Foswiki::Func::topicExists($web, $topic)) {
+    $outgoing->{attachmentred}{$link} = 1;
+    return;
+  }
+  unless (Foswiki::Func::attachmentExists($web, $topic, $attachment)) {
+    $outgoing->{attachmentred}{$link} = 1;
+    # TODO 'attachmenttopic'?
+    return;
+  }
 
-  return $link;
+  $outgoing->{attachment}{$link} = 1;
+  $outgoing->{attachmenttopic}{"$web.$topic"} = 1;
 }
 
 sub _addLink {
-  my ($this, $links, $baseWeb, $baseTopic, $web, $topic) = @_;
+  my ($this, $outgoing, $baseWeb, $baseTopic, $web, $topic) = @_;
 
-  # TODO: url escapes
+  $topic =~ s/\%SCRIPTURL(?:PATH)?(?:\{"?view"?\})?\%\///g;
+  $topic =~ s/%(?:BASE)?WEB%/$baseWeb/g;
+  $topic =~ s/%(?:BASE)?TOPIC%/$baseTopic/g;
+  return if $topic =~ /[\[\]<>{}#?\$!: ]/ || $topic =~/^_\d+$/;
+  return if $topic =~ m#\%/#; # bail out: contains macros we do not understand eg. %ATTACHURL%/
+  $topic = $this->urlDecode($topic);
 
   $web ||= $baseWeb;
   ($web, $topic) = $this->normalizeWebTopicName($web, $topic);
 
+  $web =~ s#/#.#g;
+  return if $web =~ /^\./;
+
   my $link = $web . "." . $topic;
-  return '' if $link =~ /^http|ftp/;    # don't index external links
-  return '' unless Foswiki::Func::topicExists($web, $topic);
+  return if $link =~ /^[A-Za-z-]+:/;    # don't index links with protocol prefixes
 
-  $link =~ s/\%SCRIPTURL(PATH)?{.*?}\%\///g;
-  $link =~ s/%WEB%/$baseWeb/g;
-  $link =~ s/%TOPIC%/$baseTopic/g;
+  unless (Foswiki::Func::topicExists($web, $topic)) {
+    $outgoing->{topicred}{$link} = 1 if $outgoing->{topicred};
+    return;
+  }
 
-  #print STDERR "link=$link\n" unless defined $links->{$link};
-
-  $links->{$link} = 1;
-
-  return $link;
+  $outgoing->{topic}{$link} = 1;
 }
 
 ################################################################################
@@ -977,8 +1029,24 @@ sub add {
   #my ($package, $file, $line) = caller;
   #print STDERR "called add from $package:$line\n";
 
+  my $web = $doc->value_for('web');
+  my $host = $this->{wikiHostMap}{$web} || $this->{wikiHost};
+  $doc->add_fields(host => $host);
+  foreach my $field (@{$doc->fields}) {
+      if($field->{name} && $field->{name} eq 'id') {
+          $field->{value} = "$host#$field->{value}";
+      }
+  }
+
   return unless $this->{solr};
-  return $this->{solr}->add($doc);
+  my $res = $this->{solr}->add($doc);
+
+  if (++($this->{_addCount}) >= 100) {
+    $this->{_addCount} = 0;
+    $this->commit;
+  }
+
+  $res;
 }
 
 ################################################################################
@@ -1005,14 +1073,14 @@ sub optimize {
 
 ################################################################################
 sub commit {
-  my ($this, $force) = @_;
+  my ($this, $hard) = @_;
 
   return unless $this->{solr};
 
   $this->log("Committing index") if VERBOSE;
   $this->{solr}->commit({
       waitSearcher => "true",
-      softCommit => "true",
+      softCommit => $hard ? "false" : "true",
   });
 
   # invalidate page cache for all search interfaces
@@ -1062,7 +1130,9 @@ sub deleteByQuery {
 
   my $success;
   try {
-    $success = $this->{solr}->delete_by_query($query);
+    $success = $this->{solr}->delete_by_query("($query) ".
+      $this->buildHostFilter
+    );
   }
   catch Error::Simple with {
     my $e = shift;
@@ -1511,4 +1581,3 @@ sub webACLsCache {
 }
 
 1;
-
